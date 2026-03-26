@@ -197,12 +197,17 @@ wlan = conectar_wifi()
 sock = iniciar_udp()
 sock_multi = iniciar_multicast()
 
+# Inicialización de Watcdog Timer 8000 ms
+print("Iniciando Watchdog Timer")
+wdt = machine.WDT(timeout=8000)
+
 ultimo_update = utime.ticks_ms()
-intervalo_display = 1000
-contador_ciclos = 0
-ciclos_por_update = 20  # Actualizar sensor cada ~20 ciclos
+intervalo_display = 2000
 
 while True:
+    # Activación de Watchdog Timer para evitar bloqueos
+    wdt.feed()
+
     # 1. Revisar si llegó un mensaje UDP (muy responsivo)
     try:
         data, remote_addr = sock.recvfrom(1024)
