@@ -237,6 +237,10 @@ while True:
             oled.show()
 
         ultimo_update = utime.ticks_ms()
-
+    # Comprobación de estado de red (cada ciclo)
+    if not wlan.isconnected():
+        print("¡Conexión Wi-Fi perdida! Reiniciando sistema...")
+        # Al llamar reset(), el ESP32 se reinicia como si hubieras presionado el botón EN
+        machine.reset()
     # 3. Pequeña pausa para no saturar CPU
     utime.sleep(0.01)
