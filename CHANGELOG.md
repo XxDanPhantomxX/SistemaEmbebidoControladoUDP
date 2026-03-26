@@ -1,23 +1,47 @@
-# Project Changes
+# Changelog
 
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+Todos los cambios importantes de este proyecto se documentan en este archivo.
 
-## Organize Folders
+El formato esta basado en Keep a Changelog y versionado semantico.
 
-- app/
-- app/main.py
-- app/api/ws.py
-- app/services/udp_service.py
-- app/services/multicast_service.py
-- app/models/messages.py
-- app/core/config.py
-- web/
-- web/index.py
-- web/assets/css/dashboard.css
-- web/assets/js/dashboard.js
+## [1.0.0] - 2026-03-26
 
-## FastAPI Entry Point
+### Added
+- Gateway IoT con FastAPI y ciclo de vida de servicios en `app/main.py`.
+- Endpoint WebSocket en `/ws` para recepcion de comandos y difusion de mensajes.
+- Servicio UDP unicast para comunicacion con ESP32.
+- Servicio listener multicast para recepcion de eventos de sensores.
+- Gestor de conexiones WebSocket para broadcast a clientes activos.
+- Modelos de mensajes (`CommandMessage`, `ResponseMessage`, `EventMessage`) con timestamp UTC.
+- Dashboard web en tiempo real con:
+	- Estado de conexion WebSocket.
+	- Control de LED (`LED_ON`/`LED_OFF`).
+	- Consulta de estado (`STATUS`).
+	- Visualizacion de temperatura y humedad desde mensajes multicast.
+	- Historial de respuestas y eventos.
+- Firmware de referencia para ESP32 en MicroPython con:
+	- Servidor UDP puerto 5005.
+	- Control de LED integrado.
+	- Lectura DHT22.
+	- Envio de telemetria multicast a `239.1.1.1:5006`.
+	- Visualizacion en OLED SSD1306.
 
-- Route files only receive or send HTTP or WebSocket data.
-- Service files do network and business logic
-- Model files define data structure
+### Changed
+- Se estandariza la pagina principal del gateway para servir el dashboard desde `/`.
+- Se centraliza la configuracion del entorno en `app/core/config.py`.
+
+### Fixed
+- Manejo de conexiones WebSocket caidas durante el broadcast para evitar errores en cadena.
+- Aislamiento de I/O UDP bloqueante en hilo para no bloquear el event loop de FastAPI.
+
+### Notes
+- Dependencias base actuales: `fastapi` y `pydantic`.
+- Se recomienda ejecutar con `uvicorn app.main:app --reload` en desarrollo.
+
+## [Unreleased]
+
+### Planned
+- Pruebas unitarias para servicios UDP/multicast.
+- Persistencia de historicos en base de datos.
+- Seguridad en el canal de comandos (autenticacion/autorizacion).
+- Contenerizacion con Docker para despliegue reproducible.
