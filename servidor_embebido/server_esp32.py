@@ -3,6 +3,7 @@ import dht
 import utime
 import framebuf
 import ssd1306
+import ubinascii
 # import ds1307
 import os
 # import sdcard
@@ -11,6 +12,7 @@ import socket
 
 #Configuración Wi-Fi
 SSID = "POCO M6 Pro"
+#SSID = "S24diego"
 PASSWORD = "12345678"
 UDP_PORT = 5005
 
@@ -147,7 +149,11 @@ def iniciar_multicast():
     return socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 def enviar_multicast(sock, mensaje):
-    sock.sendto(mensaje.encode("utf-8"), (MULTICAST_GROUP, MULTICAST_PORT))
+    try:
+        sock.sendto(mensaje.encode("utf-8"), (MULTICAST_GROUP, MULTICAST_PORT))
+        print("Multicast enviado:", mensaje)
+    except OSError as exc:
+        print("Error enviando multicast:", exc)
 
 def procesar_mensaje(mensaje):
     mensaje = mensaje.strip().upper()
@@ -197,12 +203,19 @@ wlan = conectar_wifi()
 sock = iniciar_udp()
 sock_multi = iniciar_multicast()
 
+# Extrae los últimos 4 caracteres de la dirección MAC física del chip
+mac_parcial = ubinascii.hexlify(wlan.config('mac'))[-4:].decode('utf-8').upper()
+DEVICE_ID = f"ESP32_{mac_parcial}"
+
 # Inicialización de Watcdog Timer 8000 ms
 print("Iniciando Watchdog Timer")
 wdt = machine.WDT(timeout=8000)
 
 ultimo_update = utime.ticks_ms()
 intervalo_display = 2000
+contador_ciclos = 0
+ciclos_por_update = 20  # Actualizar sensor cada ~20 ciclos
+
 
 while True:
     # Activación de Watchdog Timer para evitar bloqueos
@@ -228,7 +241,7 @@ while True:
             mostrar_emoji(temperatura, humedad)
 
             # Enviar evento multicast con los datos del sensor
-            mensaje = f"EVENT:TEMP={temperatura};HUM={humedad}"
+            mensaje = f"EVENT:DEVICE={DEVICE_ID};TEMP={temperatura};HUM={humedad}"
             enviar_multicast(sock_multi, mensaje)
         except OSError:
             oled.fill(0)

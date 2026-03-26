@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.multicast_service = MulticastService(
         group=settings.multicast_group,
-        port=settings.multicast_port,
+        port=settings.multicast_port
     )
 
     loop = asyncio.get_running_loop()

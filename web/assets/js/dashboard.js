@@ -10,6 +10,7 @@ const ui = {
     unicastLastUpdate: document.getElementById("unicastLastUpdate"),
     tempValue: document.getElementById("tempValue"),
     humidityValue: document.getElementById("humidityValue"),
+    deviceValue: document.getElementById("deviceValue"),
     multicastStatus: document.getElementById("multicastStatus"),
     multicastLastUpdate: document.getElementById("multicastLastUpdate"),
     responsesTableBody: document.getElementById("responsesTableBody"),
@@ -82,6 +83,7 @@ function parseMetricValue(value) {
 
 function extractSensorReadings(respText) {
     const source = String(respText || "");
+    const deviceMatch = source.match(/(?:^|[;\s])DEVICE\s*=\s*([^;\s]+)/i);
 
     const tempMatch = source.match(/(?:temp(?:eratura)?)\D*(-?\d+(?:[.,]\d+)?)/i);
     const humidityMatch = source.match(/(?:hum(?:edad|idity)?)\D*(-?\d+(?:[.,]\d+)?)/i);
@@ -99,7 +101,11 @@ function extractSensorReadings(respText) {
         }
     }
 
-    return { temperature, humidity };
+    return {
+        deviceId: deviceMatch ? String(deviceMatch[1]).trim() : null,
+        temperature,
+        humidity,
+    };
 }
 
 function formatOneDecimal(value) {
@@ -145,6 +151,7 @@ function updateUnicastCard(row) {
 
 function updateMulticastCard(row) {
     const readings = extractSensorReadings(row.message);
+    ui.deviceValue.textContent = readings.deviceId || "--";
     ui.tempValue.textContent = formatOneDecimal(readings.temperature);
     ui.humidityValue.textContent = formatOneDecimal(readings.humidity);
     ui.multicastLastUpdate.textContent = nowLabel(row.timestamp);

@@ -5,9 +5,10 @@ import threading
 
 
 class MulticastService:
-    def __init__(self, group: str, port: int) -> None:
+    def __init__(self, group: str, port: int, interface_ip: str = "0.0.0.0") -> None:
         self.group = group
         self.port = port
+        self.interface_ip = interface_ip
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._socket: socket.socket | None = None
@@ -27,12 +28,17 @@ class MulticastService:
         sock.bind(("", self.port))
         sock.settimeout(1)
 
-        group_bytes = bytes(int(part) for part in self.group.split("."))
-        mreq = struct.pack("4sl", group_bytes, 0)
+        group_bytes = socket.inet_aton(self.group)
+        interface_bytes = socket.inet_aton(self.interface_ip)
+        # Use standard-size packing to avoid native alignment issues on 64-bit Linux.
+        mreq = struct.pack("=4s4s", group_bytes, interface_bytes)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
         self._socket = sock
-        print(f"Escuchando multicast en {self.group}:{self.port}")
+        print(
+            f"Escuchando multicast en {self.group}:{self.port} "
+            f"(iface {self.interface_ip})"
+        )
 
         while not self._stop_event.is_set():
             try:
