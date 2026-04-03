@@ -1,14 +1,14 @@
 # Sistema Embebido Controlado
 
-Gateway IoT para controlar un ESP32 por UDP unicast y visualizar eventos multicast en tiempo real mediante un dashboard web.
+Gateway IoT para controlar multiples ESP32 por UDP unicast y visualizar eventos multicast en tiempo real mediante un dashboard web.
 
 ## Objetivo
 
 Este proyecto conecta tres capas:
 
-- ESP32 (MicroPython): recibe comandos UDP (`LED_ON`, `LED_OFF`, `STATUS`) y envía telemetria por multicast.
-- Gateway (FastAPI): puente entre WebSocket del navegador y UDP del ESP32.
-- Frontend web: panel de control en tiempo real con estado de conexion, respuestas y metricas.
+- ESP32 (MicroPython): recibe comandos UDP (`LED_ON`, `LED_OFF`, `STATUS`) y envia telemetria por multicast con identificador unico (`ID=ESP32_xxxx`).
+- Gateway (FastAPI): puente entre WebSocket del navegador y UDP de multiples ESP32 registrados dinamicamente.
+- Frontend web: panel de control en tiempo real con estado de conexion, respuestas y metricas por dispositivo o globales.
 
 ## Arquitectura
 
@@ -24,7 +24,7 @@ Gateway FastAPI
 ESP32 (UDP unicast puerto 5005)
 	- recibe comandos
 	- responde ACK/STATUS
-	- emite EVENT:TEMP=...;HUM=... por multicast
+	- emite EVENT:ID=...;TEMP=...;HUM=... por multicast
 ```
 
 ## Estructura principal
@@ -77,7 +77,6 @@ pip install "uvicorn[standard]"
 
 Variables de entorno disponibles (con sus valores por defecto):
 
-- `ESP32_IP=172.17.161.98`
 - `ESP32_PORT=5005`
 - `MULTICAST_GROUP=239.1.1.1`
 - `MULTICAST_PORT=5006`
@@ -86,7 +85,6 @@ Variables de entorno disponibles (con sus valores por defecto):
 Ejemplo:
 
 ```bash
-export ESP32_IP=192.168.1.50
 export ESP32_PORT=5005
 export MULTICAST_GROUP=239.1.1.1
 export MULTICAST_PORT=5006
@@ -114,7 +112,7 @@ Health check:
 ### Comando desde frontend al gateway (WebSocket)
 
 ```json
-{ "command": "LED_ON" }
+{ "target": "ESP32_ABCD", "command": "LED_ON" }
 ```
 
 Comandos esperados por el firmware de referencia:
@@ -129,6 +127,8 @@ Comandos esperados por el firmware de referencia:
 {
 	"type": "response",
 	"timestamp": "2026-03-26T12:34:56.000000+00:00",
+	"target": "ESP32_ABCD",
+	"ip": "192.168.1.77",
 	"command": "STATUS",
 	"resp": "STATUS:LED=ON"
 }
@@ -140,17 +140,55 @@ Comandos esperados por el firmware de referencia:
 {
 	"type": "event",
 	"timestamp": "2026-03-26T12:34:58.000000+00:00",
-	"message": "EVENT:TEMP=25.4;HUM=60.1"
+	"device_id": "ESP32_ABCD",
+	"ip": "192.168.1.77",
+	"temp": 25.4,
+	"hum": 60.1,
+	"message": "EVENT:ID=ESP32_ABCD;TEMP=25.4;HUM=60.1"
+}
+```
+
+### Catalogo de dispositivos difundido por gateway (tipo `devices_update`)
+
+```json
+{
+	"type": "devices_update",
+	"timestamp": "2026-03-26T12:34:58.000000+00:00",
+	"devices": [
+		{
+			"device_id": "ESP32_ABCD",
+			"ip": "192.168.1.77",
+			"last_seen": "2026-03-26T12:34:58.000000+00:00",
+			"last_temp": 25.4,
+			"last_hum": 60.1
+		}
+	]
 }
 ```
 
 ## Flujo de funcionamiento
 
 1. El dashboard abre `ws://<host>/ws`.
-2. Usuario envia un comando (`LED_ON`, `LED_OFF`, `STATUS`).
-3. Gateway reenvia el comando por UDP al ESP32 (`ESP32_IP:ESP32_PORT`).
-4. ESP32 responde por UDP; gateway retransmite a todos los clientes WebSocket.
-5. En paralelo, gateway escucha multicast y publica eventos a todos los clientes.
+2. El gateway registra automaticamente dispositivos cuando recibe multicast `EVENT:ID=...;TEMP=...;HUM=...` (tambien acepta `DEVICE` por compatibilidad) y mantiene un mapa `ID -> IP`.
+3. Usuario selecciona un `target` y envia un comando (`LED_ON`, `LED_OFF`, `STATUS`).
+4. Gateway reenvia el comando por UDP al ESP32 destino (`target_ip:ESP32_PORT`).
+5. ESP32 responde por UDP; gateway retransmite a todos los clientes WebSocket.
+6. En paralelo, gateway escucha multicast y publica eventos a todos los clientes.
+
+## Escalabilidad (granja de sensores)
+
+- Mensaje de sensor recomendado en ESP32: `EVENT:ID=ESP32_01;TEMP=25.4;HUM=60.1`.
+- Gateway sin `ESP32_IP` fija: usa catalogo dinamico `ID -> IP` segun mensajes multicast recibidos.
+- App web con `target` explicito en JSON:
+
+```json
+{ "target": "ESP32_01", "command": "STATUS" }
+```
+
+- Selector de dispositivos estable: no se reinicia en cada actualizacion de sensores.
+- Telemetria y graficas:
+	- Si hay dispositivo seleccionado, muestran solo ese `ID`.
+	- Si no hay seleccion, muestran vista global.
 
 ## Firmware ESP32 (referencia)
 
@@ -166,18 +204,19 @@ Si cambias SSID, password, pines o puertos en ESP32, actualiza tambien las varia
 
 ## Verificacion rapida
 
-1. Inicia el ESP32 y confirma su IP en serial.
-2. Exporta `ESP32_IP` con la IP real del dispositivo.
+1. Inicia uno o mas ESP32 y confirma su IP en serial.
+2. Espera a que los dispositivos aparezcan en el selector del dashboard.
 3. Ejecuta FastAPI con `uvicorn`.
 4. Abre el dashboard y prueba:
-	 - Interruptor LED (ON/OFF)
-	 - Boton `STATUS`
-	 - Recepcion de temperatura/humedad en tarjeta multicast
+	- Interruptor LED (ON/OFF) por `target` seleccionado.
+	- Boton `STATUS` por `target` seleccionado.
+	- Recepcion de temperatura/humedad por dispositivo seleccionado y en vista global.
 
 ## Problemas comunes
 
 - No llega respuesta unicast:
-	- Verifica `ESP32_IP`, `ESP32_PORT` y conectividad entre equipos.
+	- Verifica que el dispositivo este registrado en el selector y que la IP mostrada sea correcta.
+	- Verifica `ESP32_PORT` y conectividad entre equipos.
 	- Revisa firewall local.
 - No llegan eventos multicast:
 	- Verifica que la red permita multicast.

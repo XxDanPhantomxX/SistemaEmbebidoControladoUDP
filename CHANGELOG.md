@@ -4,6 +4,25 @@ Todos los cambios importantes de este proyecto se documentan en este archivo.
 
 El formato esta basado en Keep a Changelog y versionado semantico.
 
+## [1.1.0] - 2026-04-03
+
+### Added
+- Soporte de escalabilidad para granja de sensores ESP32 con identificador unico por dispositivo.
+- Registro dinamico de dispositivos en gateway con relacion `ID -> IP` sin uso de IP fija.
+- Soporte en parser para mensajes multicast con `ID=` y compatibilidad con `DEVICE=`.
+- Actualizacion de firmware de referencia para emitir `EVENT:ID=...;TEMP=...;HUM=...`.
+- Vista de telemetria y graficas filtrada por dispositivo seleccionado, con fallback global si no hay seleccion.
+
+### Changed
+- El gateway publica `devices_update` en cada evento multicast parseado para mantener sincronia del dashboard.
+- El selector de dispositivos del dashboard se sincroniza de forma incremental (sin reconstruccion completa del `select`).
+- El dashboard ignora snapshots de catalogo sin cambios (mismo conjunto de IDs/IPs) para evitar actualizaciones innecesarias.
+
+### Fixed
+- Correccion de reseteo intermitente del selector a "Seleccione dispositivo" durante rafagas de eventos.
+- Correccion de parpadeo visual por recreacion del selector en cada `devices_update`.
+- Correccion en extraccion de identificador desde mensajes `EVENT:...` en frontend.
+
 ## [1.0.0] - 2026-03-26
 
 ### Added

@@ -11,9 +11,10 @@ import network
 import socket
 
 #Configuración Wi-Fi
-SSID = "POCO M6 Pro"
-#SSID = "S24diego"
-PASSWORD = "12345678"
+#SSID = "POCO M6 Pro"
+SSID = "Mega-2.4G-FBB1"
+#PASSWORD = "12345678"
+PASSWORD = "q92AU2Z4S3"
 UDP_PORT = 5005
 
 # Configuración Multicast
@@ -241,7 +242,7 @@ while True:
             mostrar_emoji(temperatura, humedad)
 
             # Enviar evento multicast con los datos del sensor
-            mensaje = f"EVENT:DEVICE={DEVICE_ID};TEMP={temperatura};HUM={humedad}"
+            mensaje = f"EVENT:ID={DEVICE_ID};TEMP={temperatura};HUM={humedad}"
             enviar_multicast(sock_multi, mensaje)
         except OSError:
             oled.fill(0)

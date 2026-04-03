@@ -14,13 +14,75 @@ from app.services.multicast_service import MulticastService                     
 from app.services.udp_service import UdpService                                  # Handles UDP communication with ESP32
 
 
+def parse_multicast_event(message: str) -> tuple[str, float | None, float | None] | None:
+    raw = message.strip()
+    if not raw:
+        return None
+
+    content = raw.split(":", 1)[1] if ":" in raw else raw
+    fields: dict[str, str] = {}
+    for item in content.replace(",", ";").split(";"):
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        fields[key.strip().upper()] = value.strip()
+
+    device_id = fields.get("ID") or fields.get("DEVICE")
+    temp_text = fields.get("TEMP")
+    hum_text = fields.get("HUM")
+    if not device_id:
+        return None
+
+    temp: float | None = None
+    hum: float | None = None
+
+    if temp_text:
+        try:
+            temp = float(temp_text.replace(",", "."))
+        except ValueError:
+            temp = None
+
+    if hum_text:
+        try:
+            hum = float(hum_text.replace(",", "."))
+        except ValueError:
+            hum = None
+
+    return device_id, temp, hum
+
+
 async def multicast_dispatcher(app: FastAPI) -> None:
     service = app.state.multicast_service
     manager = app.state.connection_manager
 
     while True:
-        message = await service.get_event()
-        event = EventMessage(timestamp=utc_iso_timestamp(), message=message)
+        payload = await service.get_event()
+        raw_message = payload.get("message", "")
+        source_ip = payload.get("source_ip")
+
+        parsed = parse_multicast_event(raw_message)
+        if parsed and source_ip:
+            device_id, temp, hum = parsed
+            manager.register_device(
+                device_id=device_id,
+                ip=source_ip,
+                temp=temp,
+                hum=hum,
+            )
+
+            event = EventMessage(
+                timestamp=utc_iso_timestamp(),
+                device_id=device_id,
+                ip=source_ip,
+                temp=temp,
+                hum=hum,
+                message=raw_message,
+            )
+            await manager.broadcast(event.model_dump())
+            await manager.broadcast(manager.get_devices_update().model_dump())
+            continue
+
+        event = EventMessage(timestamp=utc_iso_timestamp(), message=raw_message)
         await manager.broadcast(event.model_dump())
 
 
@@ -28,7 +90,6 @@ async def multicast_dispatcher(app: FastAPI) -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.connection_manager = ConnectionManager()
     app.state.udp_service = UdpService(
-        esp32_ip=settings.esp32_ip,
         esp32_port=settings.esp32_port,
         timeout_seconds=settings.unicast_timeout_seconds,
     )
@@ -71,3 +132,5 @@ def index() -> FileResponse:
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+# uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

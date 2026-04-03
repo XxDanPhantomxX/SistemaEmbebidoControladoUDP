@@ -12,7 +12,7 @@ class MulticastService:
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._socket: socket.socket | None = None
-        self._queue: asyncio.Queue[str] = asyncio.Queue()
+        self._queue: asyncio.Queue[dict[str, str]] = asyncio.Queue()
 
     def start(self, loop: asyncio.AbstractEventLoop) -> None:
         if self._thread and self._thread.is_alive():
@@ -42,17 +42,21 @@ class MulticastService:
 
         while not self._stop_event.is_set():
             try:
-                data, _ = sock.recvfrom(1024)
-            except TimeoutError:
+                data, addr = sock.recvfrom(1024)
+            except socket.timeout:
                 continue
             except OSError:
                 break
 
             msg = data.decode("utf-8")
-            print("Multicast recibido:", msg)
-            loop.call_soon_threadsafe(self._queue.put_nowait, msg)
+            source_ip = addr[0]
+            print(f"Multicast recibido de {source_ip}: {msg}")
+            loop.call_soon_threadsafe(
+                self._queue.put_nowait,
+                {"message": msg, "source_ip": source_ip},
+            )
 
-    async def get_event(self) -> str:
+    async def get_event(self) -> dict[str, str]:
         return await self._queue.get()
 
     def stop(self) -> None:
