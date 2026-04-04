@@ -63,7 +63,7 @@ async def multicast_dispatcher(app: FastAPI) -> None:
         parsed = parse_multicast_event(raw_message)
         if parsed and source_ip:
             device_id, temp, hum = parsed
-            manager.register_device(
+            device_state, _ = manager.register_device(
                 device_id=device_id,
                 ip=source_ip,
                 temp=temp,
@@ -72,8 +72,9 @@ async def multicast_dispatcher(app: FastAPI) -> None:
 
             event = EventMessage(
                 timestamp=utc_iso_timestamp(),
-                device_id=device_id,
-                ip=source_ip,
+                device_key=device_state.device_key,
+                device_id=device_state.device_id,
+                ip=device_state.ip,
                 temp=temp,
                 hum=hum,
                 message=raw_message,
@@ -81,6 +82,9 @@ async def multicast_dispatcher(app: FastAPI) -> None:
             await manager.broadcast(event.model_dump())
             await manager.broadcast(manager.get_devices_update().model_dump())
             continue
+
+        if source_ip:
+            print(f"Evento multicast descartado de {source_ip}: {raw_message}")
 
         event = EventMessage(timestamp=utc_iso_timestamp(), message=raw_message)
         await manager.broadcast(event.model_dump())

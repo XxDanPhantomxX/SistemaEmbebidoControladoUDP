@@ -1,196 +1,88 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard IoT UDP</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="/assets/css/dashboard.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IoT Gateway Dashboard</title>
+  <link rel="stylesheet" href="/assets/css/dashboard.css?v=20260404" />
 </head>
 <body>
-    <main class="dashboard-shell">
-        <section class="hero p-4 mb-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                <div>
-                    <h1 class="h3 mb-1 fw-bold">Dashboard de Control IoT UDP</h1>
-                    <p class="mb-0 text-secondary">Monitoreo multicast y respuestas unicast en tiempo real.</p>
-                </div>
-                <div class="text-end">
-                    <span id="connectionBadge" class="badge rounded-pill px-3 py-2 badge-warning-soft">Conectando...</span>
-                    <div id="connectionText" class="small text-secondary mt-1">Estado del enlace WebSocket</div>
-                </div>
-            </div>
-        </section>
+  <div class="bg-shape bg-shape-a"></div>
+  <div class="bg-shape bg-shape-b"></div>
 
-        <section class="row g-3 mb-4">
-            <div class="col-12 col-md-4 reveal reveal-delay-1">
-                <article class="card-glass p-3 h-100">
-                    <div class="kpi-label">Total respuestas</div>
-                    <div id="totalResponses" class="kpi-value mt-2">0</div>
-                </article>
-            </div>
-            <div class="col-12 col-md-4 reveal reveal-delay-2">
-                <article class="card-glass p-3 h-100">
-                    <div class="kpi-label">Total eventos</div>
-                    <div id="totalEvents" class="kpi-value mt-2">0</div>
-                </article>
-            </div>
-            <div class="col-12 col-md-4 reveal reveal-delay-3">
-                <article class="card-glass p-3 h-100">
-                    <div class="kpi-label">Ultimo comando</div>
-                    <div id="lastCommand" class="kpi-value mt-2">-</div>
-                </article>
-            </div>
-        </section>
+  <main class="page">
+    <header class="hero">
+      <h1>IoT Gateway Dashboard</h1>
+      <p>Monitoreo en tiempo real de eventos multicast y control por dispositivo.</p>
+      <div class="status-pill" id="connectionStatus">Desconectado</div>
+    </header>
 
-        <section class="row g-3 mb-4">
-            <div class="col-12 col-lg-4 reveal reveal-delay-1">
-                <article class="card-glass p-3 h-100">
-                    <h2 class="h5 mb-3">Comandos</h2>
-                    <div class="d-grid gap-2">
-                        <div id="ledIndicator" class="led-indicator led-indicator-off">
-                            <i id="ledIndicatorIcon" class="bi bi-lightbulb-off-fill" aria-hidden="true"></i>
-                            <span id="ledIndicatorText">Foco apagado</span>
-                        </div>
-                        <div class="led-switch-wrap">
-                            <div class="form-check form-switch led-switch-control m-0">
-                                <input class="form-check-input" type="checkbox" role="switch" id="ledSwitch" />
-                                <label class="form-check-label" for="ledSwitch">Control LED</label>
-                            </div>
-                            <span id="ledStateText" class="badge badge-warning-soft">LED OFF</span>
-                        </div>
-                        <div>
-                            <label for="deviceSelect" class="form-label mb-1">Dispositivo objetivo</label>
-                            <select id="deviceSelect" class="form-select">
-                                <option value="">Seleccione dispositivo</option>
-                            </select>
-                            <div id="deviceTargetMeta" class="small text-secondary mt-1">Sin dispositivos registrados.</div>
-                        </div>
-                        <button id="btnStatus" class="btn btn-outline-primary btn-lg">STATUS</button>
-                    </div>
-                </article>
-            </div>
-            <div class="col-12 col-lg-4 reveal reveal-delay-2">
-                <article class="card-glass p-3 h-100">
-                    <h2 class="h5 mb-3">Ultima respuesta unicast</h2>
-                    <div class="unicast-grid">
-                        <div class="unicast-item">
-                            <div class="sensor-label">Comando</div>
-                            <div id="unicastCommand" class="unicast-value">-</div>
-                        </div>
-                        <div class="unicast-item">
-                            <div class="sensor-label">Respuesta</div>
-                            <div id="unicastResponse" class="unicast-value">Sin respuestas aun.</div>
-                        </div>
-                    </div>
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                        <span id="unicastStatus" class="badge badge-warning-soft">Esperando respuesta unicast</span>
-                        <span class="small text-secondary">Actualizado: <span id="unicastLastUpdate">--:--:--</span></span>
-                    </div>
-                </article>
-            </div>
-            <div class="col-12 col-lg-4 reveal reveal-delay-3">
-                <article class="card-glass p-3 h-100">
-                    <h2 class="h5 mb-3">Lectura multicast (ESP)</h2>
-                    <div class="sensor-grid">
-                        <div class="sensor-tile">
-                            <div class="sensor-icon-wrap">
-                                <i class="bi bi-cpu sensor-icon" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <div class="sensor-label">Device ID</div>
-                                <div class="sensor-value"><span id="deviceValue">--</span></div>
-                            </div>
-                        </div>
-                        <div class="sensor-tile sensor-temp">
-                            <div class="sensor-icon-wrap">
-                                <i class="bi bi-thermometer-half sensor-icon" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <div class="sensor-label">Temperatura</div>
-                                <div class="sensor-value"><span id="tempValue">--</span><span class="sensor-unit"> C</span></div>
-                            </div>
-                        </div>
-                        <div class="sensor-tile sensor-humidity">
-                            <div class="sensor-icon-wrap">
-                                <i class="bi bi-droplet-half sensor-icon" aria-hidden="true"></i>
-                            </div>
-                            <div>
-                                <div class="sensor-label">Humedad</div>
-                                <div class="sensor-value"><span id="humidityValue">--</span><span class="sensor-unit"> %</span></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                        <span id="multicastStatus" class="badge badge-warning-soft">Esperando datos multicast</span>
-                        <span class="small text-secondary">Actualizado: <span id="multicastLastUpdate">--:--:--</span></span>
-                    </div>
-                </article>
-            </div>
-        </section>
+    <section class="panel">
+      <nav class="tabs" id="tabsNav" aria-label="Pestanas del dashboard">
+        <button class="tab-btn is-active" data-tab="general" type="button">General</button>
+      </nav>
 
-        <section class="row g-3 mb-4">
-            <div class="col-12 col-xl-6 reveal reveal-delay-2">
-                <article class="card-glass p-3 h-100">
-                    <h2 class="h5 mb-3">Grafica de temperatura</h2>
-                    <canvas id="temperatureChart" height="120" aria-label="Grafica de temperatura" role="img"></canvas>
-                </article>
-            </div>
-            <div class="col-12 col-xl-6 reveal reveal-delay-3">
-                <article class="card-glass p-3 h-100">
-                    <h2 class="h5 mb-3">Grafica de humedad</h2>
-                    <canvas id="humidityChart" height="120" aria-label="Grafica de humedad" role="img"></canvas>
-                </article>
-            </div>
-        </section>
+      <section class="tab-content is-active" data-content="general">
+        <div class="general-grid">
+          <article class="card">
+            <h2>Historial Multicast</h2>
+            <p class="muted">Mensajes recibidos por el gateway en tiempo real.</p>
+            <ul id="multicastHistory" class="event-list"></ul>
+          </article>
 
-        <section class="row g-3">
-            <div class="col-12 col-xl-6 reveal reveal-delay-2">
-                <article class="card-glass p-3 h-100">
-                    <h2 class="h5 mb-3">Historial de respuestas</h2>
-                    <div class="table-wrap">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Hora</th>
-                                    <th>Target</th>
-                                    <th>IP</th>
-                                    <th>Comando</th>
-                                    <th>Respuesta</th>
-                                </tr>
-                            </thead>
-                            <tbody id="responsesTableBody"></tbody>
-                        </table>
-                    </div>
-                </article>
-            </div>
-            <div class="col-12 col-xl-6 reveal reveal-delay-3">
-                <article class="card-glass p-3 h-100">
-                    <h2 class="h5 mb-3">Eventos multicast</h2>
-                    <div class="table-wrap">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Hora</th>
-                                    <th>Device</th>
-                                    <th>IP</th>
-                                    <th>Evento</th>
-                                </tr>
-                            </thead>
-                            <tbody id="eventsTableBody"></tbody>
-                        </table>
-                    </div>
-                </article>
-            </div>
-        </section>
-    </main>
+          <article class="card">
+            <h2>Dispositivos Detectados</h2>
+            <p class="muted">Resumen de dispositivos activos y ultima telemetria recibida.</p>
+            <div id="devicesSummary" class="devices-summary"></div>
+          </article>
+        </div>
+      </section>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script src="/assets/js/dashboard.js"></script>
+      <section id="deviceTabsContainer"></section>
+    </section>
+  </main>
+
+  <template id="deviceTabTemplate">
+    <button class="tab-btn" type="button"></button>
+  </template>
+
+  <template id="deviceContentTemplate">
+    <section class="tab-content device-content">
+      <div class="device-grid">
+        <article class="card card-highlight">
+          <h2 class="device-title">Device</h2>
+          <p class="device-meta"></p>
+          <div class="kpis">
+            <div class="kpi">
+              <span>Temperatura actual</span>
+              <strong class="temp-value">--</strong>
+            </div>
+            <div class="kpi">
+              <span>Humedad actual</span>
+              <strong class="hum-value">--</strong>
+            </div>
+          </div>
+          <div class="controls">
+            <button class="cmd-btn cmd-on" data-cmd="LED_ON" type="button">LED ON</button>
+            <button class="cmd-btn cmd-off" data-cmd="LED_OFF" type="button">LED OFF</button>
+            <button class="cmd-btn cmd-status" data-cmd="STATUS" type="button">STATUS</button>
+          </div>
+          <div class="command-log"></div>
+        </article>
+
+        <article class="card chart-card">
+          <h3>Grafica Temperatura</h3>
+          <canvas class="chart chart-temp" width="640" height="260"></canvas>
+        </article>
+
+        <article class="card chart-card">
+          <h3>Grafica Humedad</h3>
+          <canvas class="chart chart-hum" width="640" height="260"></canvas>
+        </article>
+      </div>
+    </section>
+  </template>
+
+  <script src="/assets/js/dashboard.js?v=20260404" defer></script>
 </body>
 </html>

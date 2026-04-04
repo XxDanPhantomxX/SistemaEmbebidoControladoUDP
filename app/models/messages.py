@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 class CommandMessage(BaseModel):
     target: Optional[str] = None
+    target_key: Optional[str] = None
     command: str
 
 
@@ -13,6 +14,7 @@ class ResponseMessage(BaseModel):
     type: str = "response"
     timestamp: str
     target: Optional[str] = None
+    target_key: Optional[str] = None
     ip: Optional[str] = None
     command: str
     resp: str
@@ -21,6 +23,7 @@ class ResponseMessage(BaseModel):
 class EventMessage(BaseModel):
     type: str = "event"
     timestamp: str
+    device_key: Optional[str] = None
     device_id: Optional[str] = None
     ip: Optional[str] = None
     temp: Optional[float] = None
@@ -29,6 +32,7 @@ class EventMessage(BaseModel):
 
 
 class DeviceState(BaseModel):
+    device_key: str
     device_id: str
     ip: str
     last_seen: str
