@@ -4,36 +4,59 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>IoT Gateway Dashboard</title>
-  <link rel="stylesheet" href="/assets/css/dashboard.css?v=20260404" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ["Sora", "ui-sans-serif", "system-ui"],
+            mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular"],
+          },
+          boxShadow: {
+            soft: "0 12px 30px rgba(15, 23, 42, 0.08)",
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <div class="bg-shape bg-shape-a"></div>
-  <div class="bg-shape bg-shape-b"></div>
-
-  <main class="page">
-    <header class="hero">
-      <h1>IoT Gateway Dashboard</h1>
-      <p>Monitoreo en tiempo real de eventos multicast y control por dispositivo.</p>
-      <div class="status-pill" id="connectionStatus">Desconectado</div>
+<body class="min-h-screen bg-[radial-gradient(circle_at_0%_0%,#dcfce7_0%,transparent_40%),radial-gradient(circle_at_100%_0%,#dbeafe_0%,transparent_35%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] font-sans text-slate-800">
+  <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <header class="relative overflow-hidden rounded-3xl border border-teal-500/20 bg-gradient-to-r from-slate-900 via-teal-900 to-cyan-900 p-6 text-emerald-50 shadow-2xl sm:p-8">
+      <div class="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-cyan-300/25 blur-3xl"></div>
+      <div class="pointer-events-none absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl"></div>
+      <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">IoT Gateway Dashboard</h1>
+      <p class="mt-2 max-w-3xl text-sm text-emerald-100 sm:text-base">Monitoreo en tiempo real de eventos multicast y control por dispositivo.</p>
+      <div class="mt-4 inline-flex rounded-full border border-emerald-200/60 bg-slate-900/25 px-3 py-1.5 text-xs font-semibold sm:text-sm" id="connectionStatus">Desconectado</div>
     </header>
 
-    <section class="panel">
-      <nav class="tabs" id="tabsNav" aria-label="Pestanas del dashboard">
-        <button class="tab-btn is-active" data-tab="general" type="button">General</button>
+    <section class="mt-5 rounded-3xl border border-white/70 bg-white/90 p-4 shadow-soft backdrop-blur sm:p-5">
+      <nav class="mb-4 flex flex-wrap gap-2 border-b border-slate-200 pb-3" id="tabsNav" aria-label="Pestanas del dashboard">
+        <button
+          class="tab-btn rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
+          data-tab="general"
+          type="button"
+        >
+          General
+        </button>
       </nav>
 
-      <section class="tab-content is-active" data-content="general">
-        <div class="general-grid">
-          <article class="card">
-            <h2>Historial Multicast</h2>
-            <p class="muted">Mensajes recibidos por el gateway en tiempo real.</p>
-            <ul id="multicastHistory" class="event-list"></ul>
+      <section class="tab-content" data-content="general">
+        <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900">Historial Multicast</h2>
+            <p class="mt-1 text-sm text-slate-500">Mensajes recibidos por el gateway en tiempo real.</p>
+            <ul id="multicastHistory" class="mt-3 grid max-h-[26rem] gap-2 overflow-auto"></ul>
           </article>
 
-          <article class="card">
-            <h2>Dispositivos Detectados</h2>
-            <p class="muted">Resumen de dispositivos activos y ultima telemetria recibida.</p>
-            <div id="devicesSummary" class="devices-summary"></div>
+          <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900">Dispositivos Detectados</h2>
+            <p class="mt-1 text-sm text-slate-500">Resumen de dispositivos activos y ultima telemetria recibida.</p>
+            <div id="devicesSummary" class="mt-3 grid gap-3"></div>
           </article>
         </div>
       </section>
@@ -43,46 +66,49 @@
   </main>
 
   <template id="deviceTabTemplate">
-    <button class="tab-btn" type="button"></button>
+    <button
+      class="tab-btn rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40"
+      type="button"
+    ></button>
   </template>
 
   <template id="deviceContentTemplate">
-    <section class="tab-content device-content">
-      <div class="device-grid">
-        <article class="card card-highlight">
-          <h2 class="device-title">Device</h2>
-          <p class="device-meta"></p>
-          <div class="kpis">
-            <div class="kpi">
-              <span>Temperatura actual</span>
-              <strong class="temp-value">--</strong>
+    <section class="tab-content device-content hidden">
+      <div class="grid gap-4">
+        <article class="rounded-2xl border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/60 to-cyan-50/50 p-4 shadow-sm">
+          <h2 class="device-title text-lg font-semibold text-slate-900">Device</h2>
+          <p class="device-meta mt-1 text-sm text-slate-500"></p>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <span class="text-xs uppercase tracking-wide text-slate-500">Temperatura actual</span>
+              <strong class="temp-value mt-1 block text-2xl font-bold text-slate-900">--</strong>
             </div>
-            <div class="kpi">
-              <span>Humedad actual</span>
-              <strong class="hum-value">--</strong>
+            <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <span class="text-xs uppercase tracking-wide text-slate-500">Humedad actual</span>
+              <strong class="hum-value mt-1 block text-2xl font-bold text-slate-900">--</strong>
             </div>
           </div>
-          <div class="controls">
-            <button class="cmd-btn cmd-on" data-cmd="LED_ON" type="button">LED ON</button>
-            <button class="cmd-btn cmd-off" data-cmd="LED_OFF" type="button">LED OFF</button>
-            <button class="cmd-btn cmd-status" data-cmd="STATUS" type="button">STATUS</button>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button class="cmd-btn rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50" data-cmd="LED_ON" type="button">LED ON</button>
+            <button class="cmd-btn rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50" data-cmd="LED_OFF" type="button">LED OFF</button>
+            <button class="cmd-btn rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50" data-cmd="STATUS" type="button">STATUS</button>
           </div>
-          <div class="command-log"></div>
+          <div class="command-log mt-3 max-h-36 overflow-auto rounded-xl border border-slate-200 bg-white p-2 font-mono text-xs text-slate-700"></div>
         </article>
 
-        <article class="card chart-card">
-          <h3>Grafica Temperatura</h3>
-          <canvas class="chart chart-temp" width="640" height="260"></canvas>
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 class="text-base font-semibold text-slate-900">Grafica Temperatura</h3>
+          <canvas class="chart chart-temp mt-2 block h-[260px] w-full rounded-xl border border-slate-700/60" width="640" height="260"></canvas>
         </article>
 
-        <article class="card chart-card">
-          <h3>Grafica Humedad</h3>
-          <canvas class="chart chart-hum" width="640" height="260"></canvas>
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 class="text-base font-semibold text-slate-900">Grafica Humedad</h3>
+          <canvas class="chart chart-hum mt-2 block h-[260px] w-full rounded-xl border border-slate-700/60" width="640" height="260"></canvas>
         </article>
       </div>
     </section>
   </template>
 
-  <script src="/assets/js/dashboard.js?v=20260404" defer></script>
+  <script src="/assets/js/dashboard.js?v=20260406" defer></script>
 </body>
 </html>

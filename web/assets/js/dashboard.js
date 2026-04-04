@@ -65,7 +65,9 @@ function buildDeviceKey(payload) {
 
 function setConnectionStatus(text, connected) {
   dom.connectionStatus.textContent = text;
-  dom.connectionStatus.classList.toggle("is-connected", Boolean(connected));
+  dom.connectionStatus.className = connected
+    ? "mt-4 inline-flex rounded-full border border-emerald-300/70 bg-emerald-600/30 px-3 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur sm:text-sm"
+    : "mt-4 inline-flex rounded-full border border-emerald-200/60 bg-slate-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-50 backdrop-blur sm:text-sm";
 }
 
 function connectWebSocket() {
@@ -330,13 +332,13 @@ function renderMulticastHistory() {
   const reversed = [...state.multicastHistory].reverse();
   for (const item of reversed) {
     const li = document.createElement("li");
-    li.className = "event-item";
+    li.className = "rounded-xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 p-3 shadow-sm";
     const time = document.createElement("span");
-    time.className = "event-time";
+    time.className = "block font-mono text-xs text-slate-500";
     time.textContent = formatTs(item.timestamp);
 
     const text = document.createElement("span");
-    text.className = "event-text";
+    text.className = "mt-1 block break-words text-sm text-slate-700";
     text.textContent = item.text;
 
     li.appendChild(time);
@@ -346,7 +348,7 @@ function renderMulticastHistory() {
 
   if (reversed.length === 0) {
     const li = document.createElement("li");
-    li.className = "event-item muted";
+    li.className = "rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-500";
     li.textContent = "Sin eventos multicast por el momento.";
     dom.multicastHistory.appendChild(li);
   }
@@ -364,36 +366,40 @@ function renderDevicesSummary() {
 
   if (devices.length === 0) {
     dom.devicesSummary.textContent = "Todavia no hay dispositivos detectados.";
-    dom.devicesSummary.className = "devices-summary muted";
+    dom.devicesSummary.className = "mt-3 text-sm text-slate-500";
     return;
   }
 
-  dom.devicesSummary.className = "devices-summary";
+  dom.devicesSummary.className = "mt-3 grid gap-3";
 
   for (const device of devices) {
     const box = document.createElement("article");
-    box.className = "summary-item";
+    box.className = "rounded-xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 p-3 shadow-sm";
 
     const title = document.createElement("h3");
+    title.className = "text-sm font-semibold text-slate-900";
     title.textContent = device.deviceId;
 
     const ip = document.createElement("p");
+    ip.className = "mt-1 text-sm text-slate-600";
     ip.textContent = device.ip;
 
     const temp = document.createElement("p");
+    temp.className = "mt-1 text-sm text-slate-700";
     const tempStrong = document.createElement("strong");
     tempStrong.textContent = safeValue(device.lastTemp, " C");
     temp.appendChild(document.createTextNode("T: "));
     temp.appendChild(tempStrong);
 
     const hum = document.createElement("p");
+    hum.className = "mt-1 text-sm text-slate-700";
     const humStrong = document.createElement("strong");
     humStrong.textContent = safeValue(device.lastHum, " %");
     hum.appendChild(document.createTextNode("H: "));
     hum.appendChild(humStrong);
 
     const last = document.createElement("p");
-    last.className = "muted";
+    last.className = "mt-1 text-xs text-slate-500";
     last.textContent = `Ultimo: ${formatTs(device.lastSeen)}`;
 
     box.appendChild(title);
@@ -410,11 +416,11 @@ function renderCommandLog(device) {
 
   if (lines.length === 0) {
     device.ui.commandLog.textContent = "Sin respuestas de comandos todavia.";
-    device.ui.commandLog.classList.add("muted");
+    device.ui.commandLog.className = "command-log mt-3 max-h-36 overflow-auto rounded-xl border border-slate-200 bg-white p-2 font-mono text-xs text-slate-500";
     return;
   }
 
-  device.ui.commandLog.classList.remove("muted");
+  device.ui.commandLog.className = "command-log mt-3 max-h-36 overflow-auto rounded-xl border border-slate-200 bg-white p-2 font-mono text-xs text-slate-700";
   device.ui.commandLog.innerHTML = "";
   for (const line of lines) {
     const entry = document.createElement("div");
@@ -533,14 +539,20 @@ function drawSeriesChart(canvas, series, lineColor, title) {
 function switchTab(tabId) {
   state.activeTab = tabId;
 
+  const activeClasses = ["bg-slate-900", "text-white", "border-slate-900", "shadow"];
+  const inactiveClasses = ["bg-white", "text-slate-700", "border-slate-300", "hover:bg-slate-50"];
+
   const tabButtons = dom.tabsNav.querySelectorAll(".tab-btn");
   for (const button of tabButtons) {
-    button.classList.toggle("is-active", button.dataset.tab === tabId);
+    const isActive = button.dataset.tab === tabId;
+    button.classList.remove(...activeClasses, ...inactiveClasses);
+    button.classList.add(...(isActive ? activeClasses : inactiveClasses));
   }
 
   const contentNodes = document.querySelectorAll(".tab-content");
   for (const node of contentNodes) {
-    node.classList.toggle("is-active", node.dataset.content === tabId);
+    const isActive = node.dataset.content === tabId;
+    node.classList.toggle("hidden", !isActive);
   }
 }
 
