@@ -3,13 +3,14 @@ from collections.abc import AsyncIterator                                       
 from contextlib import asynccontextmanager                                       # For managing app lifespan
 from pathlib import Path
 from typing import Any, cast                                                     # For type hinting
-from fastapi import FastAPI                                                      # Web framework
+from fastapi import FastAPI, Query                                               # Web framework
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from app.api.ws import router as ws_router                                       # WebSocket API routes
 from app.core.config import settings                                             # Configuration settings
 from app.models.messages import EventMessage, utc_iso_timestamp                  # Message models and timestamp function
 from app.services.connection_manager import ConnectionManager                    # Manages WebSocket connections
+from app.services.database_service import DatabaseService
 from app.services.multicast_service import MulticastService                      # Listens for multicast events
 from app.services.udp_service import UdpService                                  # Handles UDP communication with ESP32
 
@@ -54,6 +55,7 @@ def parse_multicast_event(message: str) -> tuple[str, float | None, float | None
 async def multicast_dispatcher(app: FastAPI) -> None:
     service = app.state.multicast_service
     manager = app.state.connection_manager
+    db_service = app.state.db_service
 
     while True:
         payload = await service.get_event()
@@ -79,6 +81,13 @@ async def multicast_dispatcher(app: FastAPI) -> None:
                 hum=hum,
                 message=raw_message,
             )
+            await asyncio.to_thread(
+                db_service.insert_telemetry,
+                timestamp=event.timestamp,
+                device_id=device_state.device_id,
+                temperature=temp,
+                humidity=hum,
+            )
             await manager.broadcast(event.model_dump())
             await manager.broadcast(manager.get_devices_update().model_dump())
             continue
@@ -87,12 +96,23 @@ async def multicast_dispatcher(app: FastAPI) -> None:
             print(f"Evento multicast descartado de {source_ip}: {raw_message}")
 
         event = EventMessage(timestamp=utc_iso_timestamp(), message=raw_message)
+        fallback_device_id = parsed[0] if parsed else "UNKNOWN"
+        fallback_temp = parsed[1] if parsed else None
+        fallback_hum = parsed[2] if parsed else None
+        await asyncio.to_thread(
+            db_service.insert_telemetry,
+            timestamp=event.timestamp,
+            device_id=fallback_device_id,
+            temperature=fallback_temp,
+            humidity=fallback_hum,
+        )
         await manager.broadcast(event.model_dump())
 
 
 @asynccontextmanager                                                             # Decorator to manage startup and shutdown
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.connection_manager = ConnectionManager()
+    app.state.db_service = DatabaseService(settings.db_path)
     app.state.udp_service = UdpService(
         esp32_port=settings.esp32_port,
         timeout_seconds=settings.unicast_timeout_seconds,
@@ -117,6 +137,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except asyncio.CancelledError:
         pass
 
+    app.state.db_service.close()
+
     print("Servicios de gateway detenidos")
 
 
@@ -136,5 +158,18 @@ def index() -> FileResponse:
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/history/{device_id}")
+async def history(
+    device_id: str,
+    limit: int = Query(default=50, ge=0, le=10000),
+) -> dict:
+    records = await asyncio.to_thread(app.state.db_service.get_history, device_id, limit)
+    return {
+        "device_id": device_id,
+        "count": len(records),
+        "records": records,
+    }
 
 # uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

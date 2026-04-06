@@ -1,6 +1,8 @@
 const MAX_EVENT_HISTORY = 120;
-const MAX_SERIES_POINTS = 80;
+const MAX_SERIES_POINTS = 0;
 const MAX_COMMAND_LOG = 10;
+const HISTORY_API_LIMIT = 0;
+const HISTORY_TIMELINE_SEED = 40;
 
 const state = {
   socket: null,
@@ -116,6 +118,7 @@ function connectWebSocket() {
 function ensureDevice(initialData) {
   const deviceKey = initialData.deviceKey;
   let device = state.devices.get(deviceKey);
+  let created = false;
 
   if (!device) {
     const contentId = contentIdFromKey(deviceKey);
@@ -148,6 +151,8 @@ function ensureDevice(initialData) {
       tempSeries: [],
       humSeries: [],
       commandLogEntries: [],
+      historyLoading: false,
+      historyLoaded: false,
       ui: {
         contentId,
         tabButton,
@@ -163,6 +168,7 @@ function ensureDevice(initialData) {
     };
 
     state.devices.set(deviceKey, device);
+    created = true;
   }
 
   if (initialData.deviceId) {
@@ -193,23 +199,136 @@ function ensureDevice(initialData) {
 
   renderDevice(device);
   renderDevicesSummary();
+
+  if ((created || !device.historyLoaded) && device.deviceId && device.deviceId !== "UNKNOWN") {
+    void hydrateDeviceFromHistory(device);
+  }
+
   return device;
 }
 
 function appendSeriesPoint(series, timestamp, value) {
-  const lastPoint = series.length > 0 ? series[series.length - 1] : null;
-  if (lastPoint && Math.abs(lastPoint.value - value) < 0.0001) {
-    lastPoint.timestamp = timestamp || new Date().toISOString();
+  const pointTimestamp = timestamp || new Date().toISOString();
+  const exists = series.some((item) => item.timestamp === pointTimestamp);
+  if (exists) {
     return;
   }
 
   series.push({
-    timestamp: timestamp || new Date().toISOString(),
+    timestamp: pointTimestamp,
     value,
   });
 
-  if (series.length > MAX_SERIES_POINTS) {
+  series.sort((a, b) => {
+    const aDate = new Date(a.timestamp).getTime();
+    const bDate = new Date(b.timestamp).getTime();
+    return aDate - bDate;
+  });
+
+  if (MAX_SERIES_POINTS > 0 && series.length > MAX_SERIES_POINTS) {
     series.splice(0, series.length - MAX_SERIES_POINTS);
+  }
+}
+
+function normalizeHistoryRecord(record) {
+  const tempRaw = record.temp ?? record.temperature;
+  const humRaw = record.hum ?? record.humidity;
+
+  const temp = tempRaw === null || tempRaw === undefined ? null : Number(tempRaw);
+  const hum = humRaw === null || humRaw === undefined ? null : Number(humRaw);
+
+  return {
+    timestamp: record.timestamp || null,
+    temp: Number.isNaN(temp) ? null : temp,
+    hum: Number.isNaN(hum) ? null : hum,
+  };
+}
+
+function shouldReplaceByTimestamp(currentTs, incomingTs) {
+  if (!incomingTs) {
+    return false;
+  }
+  if (!currentTs) {
+    return true;
+  }
+
+  const current = new Date(currentTs).getTime();
+  const incoming = new Date(incomingTs).getTime();
+
+  if (Number.isNaN(current)) {
+    return true;
+  }
+  if (Number.isNaN(incoming)) {
+    return false;
+  }
+  return incoming > current;
+}
+
+async function hydrateDeviceFromHistory(device) {
+  if (!device || device.historyLoading || device.historyLoaded || !device.deviceId || device.deviceId === "UNKNOWN") {
+    return;
+  }
+
+  device.historyLoading = true;
+
+  try {
+    const response = await fetch(`/history/${encodeURIComponent(device.deviceId)}?limit=${HISTORY_API_LIMIT}`);
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = await response.json();
+    const records = Array.isArray(payload?.records) ? payload.records : [];
+
+    if (records.length === 0) {
+      device.historyLoaded = true;
+      return;
+    }
+
+    const ordered = records
+      .map(normalizeHistoryRecord)
+      .filter((item) => item.timestamp)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    for (const item of ordered) {
+      if (item.temp !== null) {
+        appendSeriesPoint(device.tempSeries, item.timestamp, item.temp);
+      }
+      if (item.hum !== null) {
+        appendSeriesPoint(device.humSeries, item.timestamp, item.hum);
+      }
+    }
+
+    const latest = ordered[ordered.length - 1];
+    if (latest) {
+      if (latest.temp !== null) {
+        device.lastTemp = latest.temp;
+      }
+      if (latest.hum !== null) {
+        device.lastHum = latest.hum;
+      }
+      if (shouldReplaceByTimestamp(device.lastSeen, latest.timestamp)) {
+        device.lastSeen = latest.timestamp;
+      }
+    }
+
+    const sampleSize = Math.min(HISTORY_TIMELINE_SEED, records.length);
+    for (let i = 0; i < sampleSize; i += 1) {
+      const item = normalizeHistoryRecord(records[i]);
+      const text = `Historico DB ${device.deviceId}: TEMP=${safeValue(item.temp, " C")}; HUM=${safeValue(item.hum, " %")}`;
+      addMulticastEvent({
+        timestamp: item.timestamp || new Date().toISOString(),
+        text,
+      });
+    }
+
+    device.historyLoaded = true;
+    renderDevice(device);
+    renderDevicesSummary();
+  } catch {
+    // Ignore transient fetch errors and allow retry on next device update.
+  } finally {
+    device.historyLoading = false;
   }
 }
 

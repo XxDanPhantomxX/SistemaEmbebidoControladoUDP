@@ -81,6 +81,7 @@ Variables de entorno disponibles (con sus valores por defecto):
 - `MULTICAST_GROUP=239.1.1.1`
 - `MULTICAST_PORT=5006`
 - `UNICAST_TIMEOUT_SECONDS=3`
+- `IOT_DB_PATH=iot_data.db`
 
 Ejemplo:
 
@@ -89,6 +90,7 @@ export ESP32_PORT=5005
 export MULTICAST_GROUP=239.1.1.1
 export MULTICAST_PORT=5006
 export UNICAST_TIMEOUT_SECONDS=3
+export IOT_DB_PATH=iot_data.db
 ```
 
 ## Ejecucion
@@ -107,12 +109,28 @@ Health check:
 
 - `GET /health` -> `{"status":"ok"}`
 
+Historial por dispositivo:
+
+- `GET /history/{device_id}` -> ultimos 50 registros por defecto
+- `GET /history/{device_id}?limit=0` -> historial completo del dispositivo
+
+Nota:
+
+- Si hay mas de un dispositivo con el mismo `device_id`, el dashboard usa `target_key` (`device_id@ip`) para evitar ambiguedades.
+- Si un cliente envia solo `target` y hay colision por `device_id`, el backend responde con `target ambiguo, seleccione por IP`.
+
 ## Contrato de mensajes
 
 ### Comando desde frontend al gateway (WebSocket)
 
 ```json
 { "target": "ESP32_ABCD", "command": "LED_ON" }
+```
+
+Cuando el dashboard conoce la IP del dispositivo, tambien puede enviar:
+
+```json
+{ "target": "ESP32_ABCD", "target_key": "ESP32_ABCD@192.168.1.77", "command": "STATUS" }
 ```
 
 Comandos esperados por el firmware de referencia:
@@ -164,6 +182,24 @@ Comandos esperados por el firmware de referencia:
 		}
 	]
 }
+```
+
+## Persistencia de datos (SQLite)
+
+- El gateway crea automaticamente `iot_data.db` al iniciar.
+- Cada evento multicast valido (`EVENT:ID=...;TEMP=...;HUM=...`) se inserta en la tabla `telemetry`.
+- Campos almacenados por fila:
+	- `timestamp`
+	- `device_id`
+	- `temperature`
+	- `humidity`
+
+El dashboard puede reconstruir la serie historica de cada dispositivo desde esta tabla al conectarse.
+
+Ejemplo de consulta de historial:
+
+```bash
+curl http://localhost:8000/history/ESP32_0300
 ```
 
 ## Flujo de funcionamiento

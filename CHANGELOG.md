@@ -59,8 +59,19 @@ El formato esta basado en Keep a Changelog y versionado semantico.
 
 ## [Unreleased]
 
+### Added
+- Persistencia de telemetria en SQLite con tabla `telemetry` y archivo local `iot_data.db`.
+- Endpoint `GET /history/{device_id}` para consultar historico por dispositivo.
+- Carga inicial del dashboard desde el historial persistido para reconstruir series y estado.
+
+### Changed
+- El gateway ahora registra en base de datos cada evento multicast valido al mismo tiempo que lo difunde por WebSocket.
+- El dashboard envia `target_key` (`device_id@ip`) cuando esta disponible para evitar ambiguedad entre dispositivos con el mismo `device_id`.
+
+### Fixed
+- Manejo explicito de `target ambiguo, seleccione por IP` cuando un comando llega solo con `target` y existe mas de un dispositivo con ese identificador.
+
 ### Planned
 - Pruebas unitarias para servicios UDP/multicast.
-- Persistencia de historicos en base de datos.
 - Seguridad en el canal de comandos (autenticacion/autorizacion).
 - Contenerizacion con Docker para despliegue reproducible.
