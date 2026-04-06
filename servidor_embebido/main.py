@@ -12,9 +12,7 @@ import socket
 
 #Configuración Wi-Fi
 #SSID = "POCO M6 Pro"
-SSID = "Mega-2.4G-FBB1"
 #PASSWORD = "12345678"
-PASSWORD = "q92AU2Z4S3"
 UDP_PORT = 5005
 
 # Configuración Multicast
