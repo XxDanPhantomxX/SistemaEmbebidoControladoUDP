@@ -578,11 +578,23 @@ function prepareCanvas(canvas) {
   return { ctx, width: cssWidth, height: cssHeight };
 }
 
+function formatAxisLabelParts(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return ["--/--/----", "--:--:--"];
+  }
+
+  return [
+    date.toLocaleDateString(),
+    date.toLocaleTimeString(),
+  ];
+}
+
 function drawSeriesChart(canvas, series, lineColor, title) {
   const { ctx, width, height } = prepareCanvas(canvas);
   ctx.clearRect(0, 0, width, height);
 
-  const margin = { top: 24, right: 14, bottom: 28, left: 44 };
+  const margin = { top: 24, right: 14, bottom: 46, left: 44 };
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
 
@@ -622,12 +634,32 @@ function drawSeriesChart(canvas, series, lineColor, title) {
   max += pad;
   min -= pad;
 
+  const pointTimes = series.map((point, index) => {
+    const parsed = new Date(point.timestamp).getTime();
+    if (Number.isNaN(parsed)) {
+      return index;
+    }
+    return parsed;
+  });
+
+  const minTime = Math.min(...pointTimes);
+  const maxTime = Math.max(...pointTimes);
+
+  function getXPosition(index) {
+    if (Math.abs(maxTime - minTime) < 1) {
+      return margin.left + (chartWidth * index) / Math.max(1, series.length - 1);
+    }
+
+    const ratio = (pointTimes[index] - minTime) / (maxTime - minTime);
+    return margin.left + ratio * chartWidth;
+  }
+
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
 
   series.forEach((point, index) => {
-    const x = margin.left + (chartWidth * index) / Math.max(1, series.length - 1);
+    const x = getXPosition(index);
     const ratio = (point.value - min) / (max - min);
     const y = margin.top + chartHeight - ratio * chartHeight;
     if (index === 0) {
@@ -639,7 +671,7 @@ function drawSeriesChart(canvas, series, lineColor, title) {
   ctx.stroke();
 
   const last = series[series.length - 1];
-  const lastX = margin.left + chartWidth;
+  const lastX = getXPosition(series.length - 1);
   const lastRatio = (last.value - min) / (max - min);
   const lastY = margin.top + chartHeight - lastRatio * chartHeight;
 
@@ -653,6 +685,44 @@ function drawSeriesChart(canvas, series, lineColor, title) {
   ctx.fillText(max.toFixed(1), 6, margin.top + 4);
   ctx.fillText(min.toFixed(1), 6, margin.top + chartHeight);
   ctx.fillText(`Ultimo: ${last.value.toFixed(1)}`, width - 130, 16);
+
+  const tickIndexes = Array.from(new Set([
+    0,
+    Math.floor((series.length - 1) / 2),
+    series.length - 1,
+  ])).filter((index) => index >= 0 && index < series.length);
+
+  ctx.strokeStyle = "rgba(232, 243, 253, 0.28)";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "rgba(232, 243, 253, 0.78)";
+  ctx.font = "10px monospace";
+
+  for (const tickIndex of tickIndexes) {
+    const x = getXPosition(tickIndex);
+    const yBase = margin.top + chartHeight;
+
+    ctx.beginPath();
+    ctx.moveTo(x, yBase);
+    ctx.lineTo(x, yBase + 5);
+    ctx.stroke();
+
+    const [datePart, timePart] = formatAxisLabelParts(series[tickIndex].timestamp);
+
+    const dateWidth = ctx.measureText(datePart).width;
+    const timeWidth = ctx.measureText(timePart).width;
+
+    const dateX = Math.min(
+      Math.max(x - dateWidth / 2, margin.left),
+      margin.left + chartWidth - dateWidth,
+    );
+    const timeX = Math.min(
+      Math.max(x - timeWidth / 2, margin.left),
+      margin.left + chartWidth - timeWidth,
+    );
+
+    ctx.fillText(datePart, dateX, yBase + 16);
+    ctx.fillText(timePart, timeX, yBase + 28);
+  }
 }
 
 function switchTab(tabId) {
@@ -686,7 +756,7 @@ function sendCommand(deviceKey, command) {
     target_key: device.deviceKey,
     command,
   };
-
+  console.log("Enviando comando:", payload);
   state.socket.send(JSON.stringify(payload));
   const line = `${new Date().toLocaleString()} - Enviado: ${command}`;
   device.commandLogEntries.push(line);
